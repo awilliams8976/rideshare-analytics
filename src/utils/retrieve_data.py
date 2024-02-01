@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import requests
 
-def retrieve_rideshare_data(
+def retrieve_data(
         download_path: str,
         year: int,
         month: int
@@ -44,4 +44,4 @@ if __name__ == "__main__":
     date_list = pd.date_range("2022-01-01","2022-12-31",freq="MS").tolist()
 
     for date in date_list:
-        retrieve_rideshare_data(download_path=path,year=date.year,month=date.month)
+        retrieve_data(download_path=path,year=date.year,month=date.month)
