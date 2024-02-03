@@ -38,6 +38,7 @@ def retrieve_data(
 
     return f"SUCCESS: {green_file} & {yellow_file} written to {download_path}."
 
+
 if __name__ == "__main__":
 
     path = os.path.abspath(os.path.join(os.path.dirname(__file__),"..","..","data/raw/"))
