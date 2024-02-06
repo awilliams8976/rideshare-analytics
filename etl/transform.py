@@ -61,38 +61,38 @@ def transform_data(
     vendor_dim = vendor_dim.withColumn("vendor_name", vendor_map_expr[f.col("vendor_code")])
     vendor_dim = vendor_dim.select(["vendor_id", "vendor_code", "vendor_name"])
 
-    date_dim = taxi_df \
+    datetime_dim = taxi_df \
         .select(["pickup_datetime", "dropoff_datetime"]) \
         .distinct() \
         .sort(["pickup_datetime", "dropoff_datetime"])
 
-    date_dim_cols = {
+    datetime_dim_cols = {
         "datetime_id": f.row_number().over(Window.orderBy(f.monotonically_increasing_id())),
-        "pickup_datetime": date_dim["pickup_datetime"],
-        "pickup_year": f.year(date_dim["pickup_datetime"]),
-        "pickup_month": f.month(date_dim["pickup_datetime"]),
-        "pickup_day": f.day(date_dim["pickup_datetime"]),
-        "pickup_hour": f.hour(date_dim["pickup_datetime"]),
-        "pickup_minute": f.minute(date_dim["pickup_datetime"]),
-        "pickup_second": f.second(date_dim["pickup_datetime"]),
-        "pickup_weekday": f.weekday(date_dim["pickup_datetime"]),
-        "pickup_day_of_month": f.dayofmonth(date_dim["pickup_datetime"]),
-        "pickup_day_of_year": f.dayofyear(date_dim["pickup_datetime"]),
-        "pickup_week_of_year": f.weekofyear(date_dim["pickup_datetime"]),
-        "dropoff_datetime": date_dim["dropoff_datetime"],
-        "dropoff_year": f.year(date_dim["dropoff_datetime"]),
-        "dropoff_month": f.month(date_dim["dropoff_datetime"]),
-        "dropoff_day": f.day(date_dim["dropoff_datetime"]),
-        "dropoff_hour": f.hour(date_dim["dropoff_datetime"]),
-        "dropoff_minute": f.minute(date_dim["dropoff_datetime"]),
-        "dropoff_second": f.second(date_dim["dropoff_datetime"]),
-        "dropoff_weekday": f.weekday(date_dim["dropoff_datetime"]),
-        "dropoff_day_of_month": f.dayofmonth(date_dim["dropoff_datetime"]),
-        "dropoff_day_of_year": f.dayofyear(date_dim["dropoff_datetime"]),
-        "dropoff_week_of_year": f.weekofyear(date_dim["dropoff_datetime"])
+        "pickup_datetime": datetime_dim["pickup_datetime"],
+        "pickup_year": f.year(datetime_dim["pickup_datetime"]),
+        "pickup_month": f.month(datetime_dim["pickup_datetime"]),
+        "pickup_day": f.day(datetime_dim["pickup_datetime"]),
+        "pickup_hour": f.hour(datetime_dim["pickup_datetime"]),
+        "pickup_minute": f.minute(datetime_dim["pickup_datetime"]),
+        "pickup_second": f.second(datetime_dim["pickup_datetime"]),
+        "pickup_weekday": f.weekday(datetime_dim["pickup_datetime"]),
+        "pickup_day_of_month": f.dayofmonth(datetime_dim["pickup_datetime"]),
+        "pickup_day_of_year": f.dayofyear(datetime_dim["pickup_datetime"]),
+        "pickup_week_of_year": f.weekofyear(datetime_dim["pickup_datetime"]),
+        "dropoff_datetime": datetime_dim["dropoff_datetime"],
+        "dropoff_year": f.year(datetime_dim["dropoff_datetime"]),
+        "dropoff_month": f.month(datetime_dim["dropoff_datetime"]),
+        "dropoff_day": f.day(datetime_dim["dropoff_datetime"]),
+        "dropoff_hour": f.hour(datetime_dim["dropoff_datetime"]),
+        "dropoff_minute": f.minute(datetime_dim["dropoff_datetime"]),
+        "dropoff_second": f.second(datetime_dim["dropoff_datetime"]),
+        "dropoff_weekday": f.weekday(datetime_dim["dropoff_datetime"]),
+        "dropoff_day_of_month": f.dayofmonth(datetime_dim["dropoff_datetime"]),
+        "dropoff_day_of_year": f.dayofyear(datetime_dim["dropoff_datetime"]),
+        "dropoff_week_of_year": f.weekofyear(datetime_dim["dropoff_datetime"])
     }
-    date_dim = date_dim.withColumns(date_dim_cols)
-    date_dim = date_dim.select([
+    datetime_dim = datetime_dim.withColumns(datetime_dim_cols)
+    datetime_dim = datetime_dim.select([
         "datetime_id",
         "pickup_datetime",
         "pickup_year",
@@ -146,6 +146,18 @@ def transform_data(
     rate_code_dim = rate_code_dim.withColumn("rate_code_name", rate_code_map_expr[f.col("rate_code")])
     rate_code_dim = rate_code_dim.select(["rate_code_id", "rate_code", "rate_code_name"])
 
+    store_and_fwd_name = {
+        "N": "not a store and forward trip",
+        "Y": "store and forward trip"
+    }
+    store_fwd_dim = taxi_df.select("store_and_fwd_flag").distinct().sort("store_and_fwd_flag")
+    store_fwd_dim = store_fwd_dim.withColumn(
+        "store_and_fwd_id",
+        f.row_number().over(Window.orderBy(f.monotonically_increasing_id())))
+    store_fwd_map_expr = f.create_map([f.lit(x) for x in chain(*store_and_fwd_name.items())])
+    store_fwd_dim = store_fwd_dim.withColumn("store_and_fwd_name", store_fwd_map_expr[f.col("store_and_fwd_flag")])
+    store_fwd_dim = store_fwd_dim.select(["store_and_fwd_id", "store_and_fwd_flag", "store_and_fwd_name"])
+
     rename_location_cols_map = {
         "pu_location_id": "pu_location_code",
         "do_location_id": "do_location_code",
@@ -193,29 +205,33 @@ def transform_data(
         f.row_number().over(Window.orderBy(f.monotonically_increasing_id())))
     payment_type_dim = payment_type_dim.select(["payment_id", "payment_code", "payment_type_name"])
 
-    fact_table = taxi_df \
+    taxi_fact = taxi_df \
+        .withColumn("trip_id",f.row_number().over(Window.orderBy(f.monotonically_increasing_id()))) \
         .join(vendor_dim, taxi_df["vendor_id"] == vendor_dim["vendor_code"]) \
         .join(passenger_count_dim, "passenger_count") \
+        .join(store_fwd_dim, "store_and_fwd_flag") \
         .join(trip_distance_dim,"trip_distance") \
         .join(rate_code_dim, "rate_code") \
         .join(pu_location_dim, taxi_df["pu_location_id"] == pu_location_dim["pu_location_code"]) \
         .join(do_location_dim, taxi_df["do_location_id"] == do_location_dim["do_location_code"]) \
-        .join(date_dim, ["pickup_datetime", "dropoff_datetime"]) \
+        .join(datetime_dim, ["pickup_datetime", "dropoff_datetime"]) \
         .join(payment_type_dim, taxi_df["payment_type"] == payment_type_dim["payment_code"]) \
-        .select([vendor_dim["vendor_id"],"datetime_id","passenger_count_id","trip_distance_id","rate_code_id",
-                 "store_and_fwd_flag",pu_location_dim["pu_location_id"],do_location_dim["do_location_id"],"payment_id",
+        .sort("datetime_id") \
+        .select(["id",vendor_dim["vendor_id"],"datetime_id","passenger_count_id","trip_distance_id","rate_code_id",
+                 "store_and_fwd_id",pu_location_dim["pu_location_id"],do_location_dim["do_location_id"],"payment_id",
                  "fare_amount","extra","mta_tax","tip_amount","tolls_amount","improvement_surcharge","total_amount"])
 
     return {
         "vendor_dim":vendor_dim,
-        "date_dim": date_dim,
+        "datetime_dim": datetime_dim,
+        "store_fwd_dim": store_fwd_dim,
         "passenger_count_dim": passenger_count_dim,
         "trip_distance_dim": trip_distance_dim,
         "rate_code_dim": rate_code_dim,
         "pu_location_dim": pu_location_dim,
         "do_location_dim": do_location_dim,
         "payment_type_dim": payment_type_dim,
-        "fact_table": fact_table
+        "taxi_fact": taxi_fact
     }
 
 
@@ -223,7 +239,7 @@ if __name__ == "__main__":
     spark = (SparkSession.builder
              .master("local")
              .config("spark.driver.memory", "15g")
-             .appName("Extract yellow taxi data")
+             .appName("Transform yellow taxi data")
              .getOrCreate())
 
     taxi_data = extract_taxi_data(spark_session=spark, year=2022, month=1)
@@ -233,11 +249,12 @@ if __name__ == "__main__":
     path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data/processed/"))
 
     df["vendor_dim"].write.csv(os.path.join(path, "vendor_dim"), mode="overwrite", header=True)
-    df["date_dim"].write.csv(os.path.join(path, "date_dim"), mode="overwrite", header=True)
+    df["datetime_dim"].write.csv(os.path.join(path, "datetime_dim"), mode="overwrite", header=True)
+    df["store_fwd_dim"].write.csv(os.path.join(path, "store_fwd_dim"), mode="overwrite", header=True)
     df["passenger_count_dim"].write.csv(os.path.join(path, "passenger_count_dim"), mode="overwrite", header=True)
     df["trip_distance_dim"].write.csv(os.path.join(path, "trip_distance_dim"), mode="overwrite", header=True)
     df["rate_code_dim"].write.csv(os.path.join(path, "rate_code_dim"), mode="overwrite", header=True)
     df["pu_location_dim"].write.csv(os.path.join(path,"pu_location_dim"),mode="overwrite",header=True)
     df["do_location_dim"].write.csv(os.path.join(path, "do_location_dim"), mode="overwrite", header=True)
     df["payment_type_dim"].write.csv(os.path.join(path, "payment_type_dim"), mode="overwrite", header=True)
-    df["fact_table"].write.csv(os.path.join(path, "fact_table"), mode="overwrite", header=True)
+    df["taxi_fact"].write.csv(os.path.join(path, "taxi_fact"), mode="overwrite", header=True)
