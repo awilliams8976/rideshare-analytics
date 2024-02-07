@@ -5,7 +5,7 @@ from pyspark.sql import DataFrameWriter, SparkSession
 from transform import transform_data
 
 
-def load(
+def load_data(
     taxi_dict: dict
 ):
     """
@@ -52,4 +52,4 @@ if __name__ == "__main__":
     zone_data = extract_zone_data(spark_session=spark)
     df_dict = transform_data(taxi_data, zone_data)
 
-    load(df_dict)
+    load_data(df_dict)
