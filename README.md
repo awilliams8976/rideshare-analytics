@@ -1,8 +1,8 @@
-# Taxi Trip Data Analytics | Data Engineering Project
+# Taxi Trip Data | Data Engineering Project
 
 ## Introduction
 ___
-The goal of this project is to develop an ETL pipeline that reads in taxi trip data from a parquet file to a PySpark DataFrame, transforms the data, loads it to a data model in a PosgreSQL database, and is visualized using Looker Studio. The pipeline will be automated and orchestrated using Apache Airflow.
+The goal of this project is to develop an ETL pipeline that reads in taxi trip data from a parquet file to a PySpark DataFrame, transforms the data, and loads it to a data model in a PosgreSQL database. The pipeline will be automated and orchestrated using Apache Airflow.
 
 ## Architecture 
 ___
@@ -14,7 +14,6 @@ Programming Language: Python
 
 * Apache Airflow
 * Apache Spark
-* Looker Studio
 * PostgreSQL
 
 ## Dataset
